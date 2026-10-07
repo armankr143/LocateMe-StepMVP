@@ -1,72 +1,21 @@
-import React, {useEffect, useState} from 'react';
-import {
-  View,
-  Text,
-  NativeModules,
-  NativeEventEmitter,
-  PermissionsAndroid,
-  Platform,
-} from 'react-native';
+package com.locateme
 
-const {StepCounter} = NativeModules;
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
 
-function App() {
-  const [steps, setSteps] = useState(0);
-  const [permission, setPermission] = useState('Checking...');
+class StepCounterPackage : ReactPackage {
 
-  useEffect(() => {
-    let subscription: any;
+    override fun createNativeModules(
+        reactContext: ReactApplicationContext
+    ): List<NativeModule> {
+        return listOf(StepCounterModule(reactContext))
+    }
 
-    const start = async () => {
-      if (Platform.OS === 'android') {
-        const result = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
-        );
-
-        setPermission(result);
-
-        if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-          return;
-        }
-      }
-
-      const stepEmitter = new NativeEventEmitter(StepCounter);
-
-      subscription = stepEmitter.addListener(
-        'StepCounterUpdate',
-        event => {
-          setSteps(Math.floor(event.steps));
-        },
-      );
-
-      StepCounter.startListening();
-    };
-
-    start();
-
-    return () => {
-      subscription?.remove();
-      StepCounter?.stopListening?.();
-    };
-  }, []);
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: 'red',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-      <Text style={{fontSize: 30, color: 'white'}}>
-        Steps: {steps}
-      </Text>
-
-      <Text style={{fontSize: 20, color: 'white'}}>
-        Permission: {permission}
-      </Text>
-    </View>
-  );
+    override fun createViewManagers(
+        reactContext: ReactApplicationContext
+    ): List<ViewManager<*, *>> {
+        return emptyList()
+    }
 }
-
-export default App;
