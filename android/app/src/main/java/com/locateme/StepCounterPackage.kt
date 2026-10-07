@@ -5,6 +5,7 @@ import {
   NativeModules,
   NativeEventEmitter,
   PermissionsAndroid,
+  Platform,
 } from 'react-native';
 
 const {StepCounter} = NativeModules;
@@ -17,14 +18,16 @@ function App() {
     let subscription: any;
 
     const start = async () => {
-      const result = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
-      );
+      if (Platform.OS === 'android') {
+        const result = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
+        );
 
-      setPermission(result);
+        setPermission(result);
 
-      if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-        return;
+        if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+          return;
+        }
       }
 
       const stepEmitter = new NativeEventEmitter(StepCounter);
