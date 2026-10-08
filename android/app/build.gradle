@@ -79,7 +79,7 @@ android {
 
     namespace "com.locateme"
     defaultConfig {
-        applicationId "com.locateme"
+        applicationId "com.locateme001"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
