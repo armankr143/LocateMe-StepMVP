@@ -1,45 +1,91 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import React, {useEffect, useState} from 'react';
+import {View, Text} from 'react-native';
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [steps, setSteps] = useState(0);
+  const [status, setStatus] = useState('Connecting...');
+
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const connect = () => {
+      if (stopped) {
+        return;
+      }
+
+      setStatus('CONNECTING...');
+
+      ws = new WebSocket('ws://10.18.159.125:8080');
+
+      ws.onopen = () => {
+        setStatus('LIVE');
+        console.log('USER B CONNECTED');
+      };
+
+      ws.onmessage = event => {
+        try {
+          const message = JSON.parse(event.data);
+
+          if (message.type === 'steps' && message.userId === 'userA') {
+            setSteps(message.steps);
+          }
+        } catch (error) {
+          console.log('USER B MESSAGE ERROR:', error);
+        }
+      };
+
+      ws.onerror = error => {
+        console.log('USER B WEBSOCKET ERROR:', error);
+        setStatus('ERROR');
+      };
+
+      ws.onclose = event => {
+        console.log('USER B DISCONNECTED:', event.code);
+        ws = null;
+
+        if (!stopped) {
+          setStatus('RECONNECTING...');
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      stopped = true;
+
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+
+      ws?.close();
+    };
+  }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
-}
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white',
+      }}>
+      <Text style={{fontSize: 24, marginBottom: 25}}>
+        USER A
+      </Text>
 
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
+      <Text style={{fontSize: 70, fontWeight: 'bold'}}>
+        {steps}
+      </Text>
 
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
+      <Text style={{fontSize: 22, marginTop: 25}}>
+        {status}
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
