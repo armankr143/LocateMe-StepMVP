@@ -1,5 +1,7 @@
 package com.locateme
 
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -53,6 +55,18 @@ class StepCounterModule(
 
     @ReactMethod
 fun startListening() {
+    val serviceIntent =
+    Intent(reactContext, StepCounterService::class.java)
+
+ContextCompat.startForegroundService(
+    reactContext,
+    serviceIntent
+)
+
+Log.d("StepCounter", "FOREGROUND SERVICE START REQUESTED")
+
+// existing sensor code
+
     Log.d("StepCounter", "startListening CALLED")
 
     if (stepCounter == null) {
@@ -82,24 +96,37 @@ fun startListening() {
         sensorManager.unregisterListener(this)
     }
 
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
+   override fun onSensorChanged(event: SensorEvent?) {
 
-            val steps = event.values[0]
+    if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
 
-            Log.d("StepCounter", "STEP EVENT: $steps")
+        val rawSteps = event.values[0]
 
-            val params = Arguments.createMap()
-            params.putDouble("steps", steps.toDouble())
+        val todaySteps =
+            TodayStepStore.update(
+                reactContext,
+                rawSteps
+            )
 
-            reactContext
-                .getJSModule(
-                    DeviceEventManagerModule.RCTDeviceEventEmitter::class.java
-                )
-                .emit("StepCounterUpdate", params)
-        }
+        Log.d(
+            "StepCounter",
+            "STEP EVENT: raw=$rawSteps today=$todaySteps"
+        )
+
+        val params = Arguments.createMap()
+
+        params.putDouble(
+            "steps",
+            todaySteps.toDouble()
+        )
+
+        reactContext
+            .getJSModule(
+                DeviceEventManagerModule.RCTDeviceEventEmitter::class.java
+            )
+            .emit("StepCounterUpdate", params)
     }
-
+}
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
         // Nothing needed here
     }
