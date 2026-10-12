@@ -77,7 +77,7 @@ class StepCounterService : Service(), SensorEventListener {
             val registered = sensorManager.registerListener(
                 this,
                 stepCounter,
-                SensorManager.SENSOR_DELAY_NORMAL
+                SensorManager.SENSOR_DELAY_GAME
             )
             Log.d(TAG, "SERVICE SENSOR REGISTERED: $registered")
         }
