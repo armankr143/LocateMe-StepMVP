@@ -21,7 +21,8 @@ function App() {
 
     // Connect User A to our WebSocket server
   
-    const ws = new WebSocket('ws://10.18.159.125:8080');
+  
+    const ws = new WebSocket('wss://ave-broadcasting-tracked-chargers.trycloudflare.com');
 
     wsRef.current = ws;
 

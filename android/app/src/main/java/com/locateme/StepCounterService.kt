@@ -46,7 +46,8 @@ class StepCounterService : Service(), SensorEventListener {
         private const val TAG = "StepService"
         private const val CHANNEL_ID = "locateme_step_channel"
         private const val NOTIFICATION_ID = 1001
-        private const val SERVER_URL = "ws://10.18.159.125:8080"
+    
+        private const val SERVER_URL = "wss://ave-broadcasting-tracked-chargers.trycloudflare.com"
     }
 
     override fun onCreate() {
