@@ -1,8 +1,8 @@
 const WebSocket = require('ws');
 
-const wss = new WebSocket.Server({
-  port: 8080,
-});
+
+const PORT = Number(process.env.PORT) || 8080;
+const wss = new WebSocket.Server({port: PORT});
 
 console.log('WebSocket server running on port 8080');
 
@@ -25,4 +25,4 @@ wss.on('connection', ws => {
   ws.on('close', () => {
     console.log('CLIENT DISCONNECTED');
   });
-});
+});code server.js
