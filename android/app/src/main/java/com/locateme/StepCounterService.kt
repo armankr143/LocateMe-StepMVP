@@ -41,13 +41,16 @@ class StepCounterService : Service(), SensorEventListener {
     private var connected = false
     private var stopping = false
     private var latestSteps: Int? = null
+    private var previousSteps: Int? = null
+    private var lastStepTimestamp: Long? = null
 
     companion object {
         private const val TAG = "StepService"
         private const val CHANNEL_ID = "locateme_step_channel"
         private const val NOTIFICATION_ID = 1001
     
-        private const val SERVER_URL = "wss://ave-broadcasting-tracked-chargers.trycloudflare.com"
+
+        private const val SERVER_URL = "wss://locateme-websocket.onrender.com"
     }
 
     override fun onCreate() {
@@ -139,33 +142,45 @@ class StepCounterService : Service(), SensorEventListener {
     }
 
     private fun sendSteps(steps: Int) {
-        if (!connected) return
+    if (!connected) return
 
-        val message = JSONObject().apply {
-            put("type", "steps")
-            put("userId", "userA")
-            put("steps", steps)
-            put("timestamp", System.currentTimeMillis())
+    val message = JSONObject().apply {
+        put("type", "steps")
+        put("userId", "userA")
+        put("steps", steps)
+        put("timestamp", System.currentTimeMillis())
+
+        lastStepTimestamp?.let {
+            put("lastStepTimestamp", it)
         }
-
-        webSocket?.send(message.toString())
-        Log.d(TAG, "BACKGROUND SENT STEPS: $steps")
     }
+
+    webSocket?.send(message.toString())
+    Log.d(TAG, "BACKGROUND SENT STEPS: $steps")
+}
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
-            val rawSteps = event.values[0]
+    if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
+        val rawSteps = event.values[0]
 
-            val todaySteps = TodayStepStore.update(
-                applicationContext,
-                rawSteps
-            )
+        val todaySteps = TodayStepStore.update(
+            applicationContext,
+            rawSteps
+        )
 
-            latestSteps = todaySteps
-            Log.d(TAG, "SERVICE STEP EVENT: $todaySteps")
-            sendSteps(todaySteps)
+        val previous = previousSteps
+
+        if (previous != null && todaySteps > previous) {
+            lastStepTimestamp = System.currentTimeMillis()
         }
+
+        previousSteps = todaySteps
+        latestSteps = todaySteps
+
+        Log.d(TAG, "SERVICE STEP EVENT: $todaySteps")
+        sendSteps(todaySteps)
     }
+}
 
     override fun onAccuracyChanged(
         sensor: Sensor?,
