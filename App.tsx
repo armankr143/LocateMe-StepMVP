@@ -22,6 +22,7 @@ function LocateMeHome({userId}: {userId: string}) {
   const [secondsAgo, setSecondsAgo] = useState<number | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const wsAuthenticatedRef = useRef(false);
   const previousStepsRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -29,10 +30,53 @@ function LocateMeHome({userId}: {userId: string}) {
     let cancelled = false;
 
 
-    const ws = new WebSocket('wss://locateme-websocket.onrender.com');
+    const ws = new WebSocket(
+  'wss://locateme-websocket.onrender.com',
+);
+
+ws.onopen = () => {
+  console.log('WEBSOCKET CONNECTED');
+  setWsStatus('Connected');
+
+  supabase.auth.getSession().then(({data, error}) => {
+    if (error || !data.session) {
+      console.log('WEBSOCKET AUTH: No valid session');
+      ws.close();
+      return;
+    }
+
+    ws.send(
+      JSON.stringify({
+        type: 'auth',
+        accessToken: data.session.access_token,
+      }),
+    );
+  });
+};
     
 
     wsRef.current = ws;
+    wsAuthenticatedRef.current = false;
+
+ws.onmessage = event => {
+  try {
+    const message = JSON.parse(String(event.data));
+
+    if (message.type === 'auth_success') {
+      wsAuthenticatedRef.current = true;
+      setWsStatus('Authenticated');
+      console.log('WEBSOCKET AUTHENTICATED');
+    }
+
+    if (message.type === 'auth_error') {
+      wsAuthenticatedRef.current = false;
+      setWsStatus('Authentication failed');
+      ws.close();
+    }
+  } catch (error) {
+    console.log('WEBSOCKET MESSAGE ERROR:', error);
+  }
+};
 
     ws.onopen = () => {
       console.log('WEBSOCKET CONNECTED');
@@ -88,7 +132,10 @@ function LocateMeHome({userId}: {userId: string}) {
           previousStepsRef.current = currentSteps;
 
           // Preserve existing WebSocket step sharing.
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
+          if (
+  wsAuthenticatedRef.current &&
+  wsRef.current?.readyState === WebSocket.OPEN
+) {
             const message = {
               type: 'steps',
               userId: 'userId',
@@ -111,7 +158,14 @@ function LocateMeHome({userId}: {userId: string}) {
       cancelled = true;
       subscription?.remove();
       StepCounter?.stopListening?.();
-      ws.close();
+
+      ws.onclose = () => {
+  console.log('WEBSOCKET CLOSED');
+  wsAuthenticatedRef.current = false;
+  setWsStatus('Disconnected');
+};
+      
+
       if (wsRef.current === ws) {
         wsRef.current = null;
       }
