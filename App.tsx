@@ -6,11 +6,15 @@ import {
   NativeModules,
   NativeEventEmitter,
   PermissionsAndroid,
+  Linking,
 } from 'react-native';
-
+import LoginScreen from './LoginScreen';
+import {supabase} from './supabase';
 const {StepCounter} = NativeModules;
 
-function App() {
+function LocateMeHome({userId}: {userId: string}) {
+
+
   const [steps, setSteps] = useState(0);
   const [permission, setPermission] = useState('Checking...');
   const [wsStatus, setWsStatus] = useState('Disconnected');
@@ -65,7 +69,8 @@ function App() {
       subscription = stepEmitter.addListener(
         'StepCounterUpdate',
         event => {
-          const currentSteps = Math.floor(event.steps);
+          
+          const currentSteps = Math.floor((event as {steps: number}).steps);
           const previousSteps = previousStepsRef.current;
 
           setSteps(currentSteps);
@@ -86,7 +91,7 @@ function App() {
           if (wsRef.current?.readyState === WebSocket.OPEN) {
             const message = {
               type: 'steps',
-              userId: 'userA',
+              userId: 'userId',
               steps: currentSteps,
               timestamp: Date.now(),
             };
@@ -190,4 +195,122 @@ function App() {
   );
 }
 
+function App() {
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  useEffect(() => {
+    const handleMagicLink = async (url: string | null) => {
+      if (!url || !url.startsWith('locateme://auth/callback')) {
+        return;
+      }
+
+      try {
+        const query = url.split('?')[1]?.split('#')[0] ?? '';
+        const params = new URLSearchParams(query);
+
+        const tokenHash = params.get('token_hash');
+        const type = params.get('type');
+
+        if (tokenHash && (type === 'magiclink' || type === 'email')) {
+          const {error} = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as 'magiclink' | 'email',
+          });
+
+          if (error) throw error;
+          return;
+        }
+
+        const fragment = url.split('#')[1] ?? '';
+        const hashParams = new URLSearchParams(fragment);
+
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          const {error} = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) throw error;
+        } else {
+          console.log('Magic link contained no session tokens.');
+        }
+      } catch (error: any) {
+        console.log('MAGIC LINK ERROR:', error?.message);
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', event => {
+      void handleMagicLink(event.url);
+    });
+
+  
+    void Linking.getInitialURL().then(url => handleMagicLink(url ?? null));
+
+    return () => subscription.remove();
+  }, []);
+
+  
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession()
+      .then(({data, error}) => {
+        if (!mounted) return;
+
+        if (error) {
+          console.log('SESSION ERROR:', error.message);
+        }
+
+        setSession(data.session);
+        setAuthLoading(false);
+      })
+      .catch(error => {
+        console.log('SESSION ERROR:', error);
+        if (mounted) setAuthLoading(false);
+      });
+
+    const {data: listener} = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        if (mounted) {
+          setSession(newSession);
+          setAuthLoading(false);
+        }
+      },
+    );
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (authLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#101827',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <Text style={{color: 'white'}}>
+          Loading LocateMe...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <LoginScreen onLogin={() => {}} />;
+  }
+
+  return <LocateMeHome userId={session.user.id} />;
+}
+
 export default App;
+
