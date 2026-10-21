@@ -56,6 +56,7 @@ ws.authenticatedUserId = authenticatedUserId;
     }
 
     if (message.type === 'steps') {
+      console.log('STEP RECEIVED:', message.steps);
       // Never trust a userId supplied by the Android client.
       // For now, deliver steps only to this user's own authenticated devices.
       const payload = JSON.stringify({
